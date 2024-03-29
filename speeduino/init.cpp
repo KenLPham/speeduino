@@ -1532,28 +1532,28 @@ void setPinMapping(byte boardID)
         pinCLT = A1; //CLS sensor pin
         pinO2 = A2; //O2 Sensor pin
         pinBat = A15; //Battery reference voltage pin. Needs Alpha4+
-        pinLaunch = 34; //Can be overwritten below
-        pinVSS = 35;
+        pinLaunch = 3; //Can be overwritten below
+        pinVSS = 37;
         pinSpareTemp2 = A16; //WRONG! Needs updating!!
         pinSpareTemp2 = A17; //WRONG! Needs updating!!
 
         pinTrigger = 20; //The CAS pin
         pinTrigger2 = 21; //The Cam Sensor pin
-        pinTrigger3 = 24;
+        pinTrigger3 = 40;
 
         pinStepperDir = 34;
         pinStepperStep = 35;
         
-        pinCoil1 = 31;
+        pinCoil1 = 26;
         pinCoil2 = 32;
         pinCoil4 = 29;
-        pinCoil3 = 30;
+        pinCoil3 = 25;
 
         pinTachOut = 28;
         pinFan = 27;
         pinFuelPump = 33;
-        pinWMIEmpty = 34;
-        pinWMIIndicator = 35;
+        pinWMIEmpty = 41;
+        pinWMIIndicator = 38;
         pinWMIEnabled = 36;
       #elif defined(STM32F407xx)
      //Pin definitions for experimental board Tjeerd 
