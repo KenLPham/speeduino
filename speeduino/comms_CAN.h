@@ -32,5 +32,13 @@ void readAuxCanBus();
 extern CAN_message_t outMsg;
 extern CAN_message_t inMsg;
 
+#if defined(NATIVE_CANFD_AVAILABLE)
+void sendDCTPowertrain();
+void PowertrainMessage(uint16_t PowertrainMessageID);
+
+extern CANFD_message_t outFDMsg;
+extern CANFD_message_t inFDMsg;
+#endif
+
 #endif
 #endif // COMMS_CAN_H
