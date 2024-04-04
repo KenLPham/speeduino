@@ -71,12 +71,14 @@ bool vvtIsHot;
 bool vvtTimeHold;
 uint16_t vvt_pwm_max_count; //Used for variable PWM frequency
 uint16_t boost_pwm_max_count; //Used for variable PWM frequency
-
 //Old PID method. Retained in case the new one has issues
 //integerPID boostPID(&MAPx100, &boost_pwm_target_value, &boostTargetx100, configPage6.boostKP, configPage6.boostKI, configPage6.boostKD, DIRECT);
 integerPID_ideal boostPID(&currentStatus.MAP, &currentStatus.boostDuty , &currentStatus.boostTarget, &configPage10.boostSens, &configPage10.boostIntv, configPage6.boostKP, configPage6.boostKI, configPage6.boostKD, DIRECT); //This is the PID object if that algorithm is used. Needs to be global as it maintains state outside of each function call
 integerPID vvtPID(&vvt_pid_current_angle, &currentStatus.vvt1Duty, &vvt_pid_target_angle, configPage10.vvtCLKP, configPage10.vvtCLKI, configPage10.vvtCLKD, configPage6.vvtPWMdir); //This is the PID object if that algorithm is used. Needs to be global as it maintains state outside of each function call
 integerPID vvt2PID(&vvt2_pid_current_angle, &currentStatus.vvt2Duty, &vvt2_pid_target_angle, configPage10.vvtCLKP, configPage10.vvtCLKI, configPage10.vvtCLKD, configPage4.vvt2PWMdir); //This is the PID object if that algorithm is used. Needs to be global as it maintains state outside of each function call
+
+static long dbw_pid_output;
+integerPID dbwPID((long*)&currentStatus.TPS, &dbw_pid_output, (long*)&currentStatus.ACC, configPage16.dbwKP, configPage16.dbwKI, configPage16.dbwKD, DIRECT);
 
 static inline void checkAirConCoolantLockout(void);
 static inline void checkAirConTPSLockout(void);
@@ -537,6 +539,9 @@ void initialiseAuxPWM(void)
 
   currentStatus.nitrous_status = NITROUS_OFF;
 
+  initialiseDBW();
+  currentStatus.dbwPW = 0;
+  dbw_pid_output = 0;
 }
 
 void boostByGear(void)
@@ -1096,6 +1101,28 @@ void wmiControl(void)
       }
     }
   }
+}
+
+void initialiseDBW(void)
+{
+    if (configPage16.dbwEnabled) {
+        dbwPID.SetOutputLimits(0, 200);
+        dbwPID.SetTunings(configPage16.dbwKP, configPage16.dbwKI, configPage16.dbwKD);
+        dbwPID.SetSampleTime(33); //30Hz is 33,33ms
+        dbwPID.SetMode(DIRECT); //Turn PID on
+    }
+}
+
+void driveByWire(void)
+{
+    // TODO: translate acc ADC to dbw PWM with a table
+    // bool PID_compute = dbwPID.Compute(true);
+    // if(PID_compute == true) {
+    //     currentStatus.dbwPW = dbw_pid_output; // map(dbw_pid_output, 0, 200, 0, 255);
+    //     //analogWrite(pinDBWPW, currentStatus.dbwPW);
+    // }
+    currentStatus.dbwPW = map(currentStatus.ACC, 0, 200, 255, 128);
+    analogWrite(pinDBWPW, currentStatus.dbwPW);
 }
 
 void boostDisable(void)

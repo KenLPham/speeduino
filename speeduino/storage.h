@@ -104,7 +104,8 @@
  * | 3283       |1           | boostControlEnableThreshold          |                                    |
  * | 3284       |14          | A/C Control Settings                 |                                    |
  * | 3298       |159         | Page 15 spare                        |                                    |
- * | 3457       |217         | EMPTY                                |                                    |
+ * | 3457		|64		 	 | Drive By Wire Settings				| @ref EEPROM_CONFIG16_START		 |
+ * | ??       |217-64         | EMPTY                                |                                    |
  * | 3674       |4           | CLT Calibration CRC32                |                                    |
  * | 3678       |4           | IAT Calibration CRC32                |                                    |
  * | 3682       |4           | O2 Calibration CRC32                 |                                    |
@@ -117,7 +118,7 @@
  * | 3967       |64          | CLT Calibration Bins                 | @ref EEPROM_CALIBRATION_CLT_BINS   |
  * | 4031       |64          | CLT Calibration Values               | @ref EEPROM_CALIBRATION_CLT_VALUES |
  * | 4095       |            | END                                  |                                    |
- *
+ * NOTE: teensy 4.1 can END at 4283 bytes
  */
 
 void writeAllConfig(void);
@@ -186,6 +187,9 @@ extern uint32_t deferEEPROMWritesUntil;
 #define EEPROM_CONFIG15_START 3281
 #define EEPROM_CONFIG15_END   3457
 
+//Page 16
+#define EEPROM_CONFIG16_START 3457
+#define EEPROM_CONFIG16_END 3470
 
 #define EEPROM_CALIBRATION_CLT_CRC  3674
 #define EEPROM_CALIBRATION_IAT_CRC  3678

@@ -318,6 +318,10 @@ void writeConfig(uint8_t pageNum)
       -----------------------------------------------------*/
       result = write_range((byte *)&configPage15, (byte *)&configPage15+sizeof(configPage15), result.changeWriteAddress(EEPROM_CONFIG15_START));
       break;
+    
+    case dbwPage:
+      result = write_range((byte *)&configPage16, (byte *)&configPage16 + sizeof(configPage16), result.changeWriteAddress(EEPROM_CONFIG16_START));
+      break;
 
     default:
       break;
@@ -475,6 +479,8 @@ void loadConfig(void)
   load_range(EEPROM_CONFIG15_START, (byte *)&configPage15, (byte *)&configPage15+sizeof(configPage15));  
 
   //*********************************************************************************************************************************************************************************
+  //CONFIG PAGE (16) DBW settings
+  load_range(EEPROM_CONFIG16_START, (byte *)&configPage16, (byte *)&configPage16+sizeof(configPage16));
 }
 
 /** Read the calibration information from EEPROM.

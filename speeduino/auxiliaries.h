@@ -19,6 +19,8 @@ void fanControl(void);
 void airConControl(void);
 bool READ_AIRCON_REQUEST(void);
 void wmiControl(void);
+void initialiseDBW(void);
+void driveByWire(void);
 
 #define SIMPLE_BOOST_P  1
 #define SIMPLE_BOOST_I  1

@@ -58,6 +58,7 @@ extern unsigned long MAPlast_time; //The time the previous MAP sample was taken
 
 void initialiseADC(void);
 void readTPS(bool useFilter=true); //Allows the option to override the use of the filter
+void readACC(bool useFilter=true); //Allows the option to override the use of the filter
 void readO2_2(void);
 void flexPulse(void);
 uint32_t vssGetPulseGap(byte toothHistoryIndex);

@@ -512,6 +512,36 @@ void readTPS(bool useFilter)
   else { currentStatus.CTPSActive = 0; }
 }
 
+void readACC(bool useFilter)
+{
+    currentStatus.ACClast = currentStatus.ACC;
+    #if defined(ANALOG_ISR)
+    // TODO: implement
+    #else
+    analogRead(pinACC);
+    byte tempACC = fastMap1023toX(analogRead(pinACC), 255);
+    #endif
+    if (useFilter) {
+      // TODO: implement??
+        currentStatus.accADC = tempACC;
+    } else {
+        currentStatus.accADC = tempACC;
+    }
+    byte tempADC = currentStatus.accADC;
+
+    if (configPage16.accMax > configPage16.accMin) {
+      tempADC = min(max(tempADC, configPage16.accMin), configPage16.accMax);
+      currentStatus.ACC = map(tempADC, configPage16.accMin, configPage16.accMax, 0, 200);
+    } else {
+        tempADC = 255 - currentStatus.accADC;
+        uint16_t tempACCMax = 255 - configPage16.accMax;
+        uint16_t tempACCMin = 255 - configPage16.accMin;
+
+        tempADC = min(max(tempADC, tempACCMin), tempACCMax);
+        currentStatus.ACC = map(tempADC, tempACCMin, tempACCMax, 0, 200);
+    }
+}
+
 void readCLT(bool useFilter)
 {
   unsigned int tempReading;

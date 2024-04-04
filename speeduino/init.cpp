@@ -1347,6 +1347,7 @@ void initialiseAll(void)
     interrupts();
     readCLT(false); // Need to read coolant temp to make priming pulsewidth work correctly. The false here disables use of the filter
     readTPS(false); // Need to read tps to detect flood clear state
+    readACC(false);
 
     /* tacho sweep function. */
     //tachoStatus.tachoSweepEnabled = (configPage2.useTachoSweep > 0);
@@ -1498,7 +1499,9 @@ void setPinMapping(byte boardID)
       pinLaunch = 51; //Can be overwritten below
       pinFlex = 2; // Flex sensor (Must be external interrupt enabled)
       pinResetControl = 43; //Reset control output
-      pinBaro = A5;
+      // pinBaro = A5;
+      pinACC = A5;
+      pinDBWPW = 49;
       pinVSS = 20;
       pinWMIEmpty = 46;
       pinWMIIndicator = 44;
@@ -1525,31 +1528,36 @@ void setPinMapping(byte boardID)
 
       #elif defined(CORE_TEENSY41)
         //These are only to prevent lockups or weird behaviour on T4.1 when this board is used as the default
-        pinBaro = A4; 
+        // ! currently not using baro and not enough pins on teensy were mapped so using baro pin for acc pin for now, will need to change it later
+        pinACC = A4; // todo: change to a different analog pin
+        // TODO:: use idle pin for dbw output
+        pinDBWPW = 28; // ! conflicts with tachOut
+        // pinIdle1 = 5; //Single wire idle control
+        // pinBaro = A4;
         pinMAP = A5;
-        pinTPS = A3; //TPS input pin
-        pinIAT = A0; //IAT sensor pin
-        pinCLT = A1; //CLS sensor pin
-        pinO2 = A2; //O2 Sensor pin
-        pinBat = A15; //Battery reference voltage pin. Needs Alpha4+
-        pinLaunch = 34; //Can be overwritten below
+        pinTPS = A3;    // TPS input pin
+        pinIAT = A0;    // IAT sensor pin
+        pinCLT = A1;    // CLS sensor pin
+        pinO2 = A2;     // O2 Sensor pin
+        pinBat = A15;   // Battery reference voltage pin. Needs Alpha4+
+        pinLaunch = 34; // Can be overwritten below
         pinVSS = 35;
-        pinSpareTemp2 = A16; //WRONG! Needs updating!!
-        pinSpareTemp2 = A17; //WRONG! Needs updating!!
+        pinSpareTemp2 = A16; // WRONG! Needs updating!!
+        pinSpareTemp2 = A17; // WRONG! Needs updating!!
 
-        pinTrigger = 20; //The CAS pin
-        pinTrigger2 = 21; //The Cam Sensor pin
+        pinTrigger = 20;  // The CAS pin
+        pinTrigger2 = 21; // The Cam Sensor pin
         pinTrigger3 = 24;
 
         pinStepperDir = 34;
         pinStepperStep = 35;
-        
+
         pinCoil1 = 31;
         pinCoil2 = 32;
         pinCoil4 = 29;
         pinCoil3 = 30;
 
-        pinTachOut = 28;
+        pinTachOut = 40; // ! 28
         pinFan = 27;
         pinFuelPump = 33;
         pinWMIEmpty = 34;
@@ -3031,6 +3039,7 @@ void setPinMapping(byte boardID)
       pinMode(pinCLT, INPUT_ANALOG);
       pinMode(pinBat, INPUT_ANALOG);
       pinMode(pinBaro, INPUT_ANALOG);
+      pinMode(pinACC, INPUT_ANALOG);
     #else
       pinMode(pinMAP, INPUT);
       pinMode(pinO2, INPUT);
@@ -3040,6 +3049,7 @@ void setPinMapping(byte boardID)
       pinMode(pinCLT, INPUT);
       pinMode(pinBat, INPUT);
       pinMode(pinBaro, INPUT);
+      pinMode(pinACC, INPUT);
     #endif
   #endif
 
@@ -3128,7 +3138,11 @@ void setPinMapping(byte boardID)
   if((pinAirConFan > 0) && ((configPage15.airConEnable) == 1) && ((configPage15.airConFanEnabled) == 1))
   {
     pinMode(pinAirConFan, OUTPUT);
-  }  
+  }
+
+  if(configPage16.dbwEnabled) {
+    // TODO: move config code here
+  }
 
   //These must come after the above pinMode statements
   triggerPri_pin_port = portInputRegister(digitalPinToPort(pinTrigger));

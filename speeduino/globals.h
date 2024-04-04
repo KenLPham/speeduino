@@ -560,7 +560,7 @@ extern volatile byte LOOP_TIMER;
 #define pinIsInjector(pin)  ( ((pin) == pinInjector1) || ((pin) == pinInjector2) || ((pin) == pinInjector3) || ((pin) == pinInjector4) || ((pin) == pinInjector5) || ((pin) == pinInjector6) || ((pin) == pinInjector7) || ((pin) == pinInjector8) )
 #define pinIsIgnition(pin)  ( ((pin) == pinCoil1) || ((pin) == pinCoil2) || ((pin) == pinCoil3) || ((pin) == pinCoil4) || ((pin) == pinCoil5) || ((pin) == pinCoil6) || ((pin) == pinCoil7) || ((pin) == pinCoil8) )
 //#define pinIsOutput(pin)    ( pinIsInjector((pin)) || pinIsIgnition((pin)) || ((pin) == pinFuelPump) || ((pin) == pinFan) || ((pin) == pinAirConComp) || ((pin) == pinAirConFan)|| ((pin) == pinVVT_1) || ((pin) == pinVVT_2) || ( ((pin) == pinBoost) && configPage6.boostEnabled) || ((pin) == pinIdle1) || ((pin) == pinIdle2) || ((pin) == pinTachOut) || ((pin) == pinStepperEnable) || ((pin) == pinStepperStep) )
-#define pinIsSensor(pin)    ( ((pin) == pinCLT) || ((pin) == pinIAT) || ((pin) == pinMAP) || ((pin) == pinTPS) || ((pin) == pinO2) || ((pin) == pinBat) || (((pin) == pinFlex) && (configPage2.flexEnabled != 0)) )
+#define pinIsSensor(pin)    ( ((pin) == pinCLT) || ((pin) == pinIAT) || ((pin) == pinMAP) || ((pin) == pinTPS) || ((pin) == pinACC) || ((pin) == pinO2) || ((pin) == pinBat) || (((pin) == pinFlex) && (configPage2.flexEnabled != 0)) )
 //#define pinIsUsed(pin)      ( pinIsSensor((pin)) || pinIsOutput((pin)) || pinIsReserved((pin)) )
 
 
@@ -593,7 +593,12 @@ struct statuses {
   byte tpsADC; /**< byte (valued: 0-255) representation of the TPS. Downsampled from the original 10-bit (0-1023) reading, but before any calibration is applied */
   int16_t tpsDOT; /**< TPS delta over time. Measures the % per second that the TPS is changing. Note that is signed value, because TPSdot can be also negative */
   byte TPSlast; /**< The previous TPS reading */
-  int16_t mapDOT; /**< MAP delta over time. Measures the kpa per second that the MAP is changing. Note that is signed value, because MAPdot can be also negative */
+  byte ACC; /**< The current ACC reading (0% - 100%). Is the accADC value after the calibration is applied >*/
+  byte accADC; /**< byte (value: 0-255) representation of the ACC. Downsampled from the original 10-bit (0-1023) reading, but before any calibration is applied */
+  int16_t accDOT; /**< ACC delta over time. Measures the % per second that the ACC is changing. Note that is signed value, because ACCdot can be also negative */
+  byte ACClast; /**< The previous ACC reading */
+  byte dbwPW;
+  int16_t mapDOT;      /**< MAP delta over time. Measures the kpa per second that the MAP is changing. Note that is signed value, because MAPdot can be also negative */
   volatile int rpmDOT; /**< RPM delta over time (RPM increase / s ?) */
   byte VE;     /**< The current VE value being used in the fuel calculation. Can be the same as VE1 or VE2, or a calculated value of both. */
   byte VE1;    /**< The VE value from fuel table 1 */
@@ -1450,6 +1455,28 @@ struct config15 {
   } __attribute__((__packed__)); //The 32 bit systems require all structs to be fully packed
 #endif
 
+struct config16 {
+    byte dbwEnabled : 1;
+    byte liftRateDamping : 4;
+
+    byte unused16_1: 3;
+
+    byte closeRateDamping : 4;
+    byte openRateDamping : 4;
+    byte accMin;
+    byte accMax;
+
+    byte dbwKP;
+    byte dbwKI;
+    byte dbwKD;
+
+    byte unused16_end[57];
+#if defined(CORE_AVR)
+};
+#else
+} __attribute__((__packed__));
+#endif
+
 extern byte pinInjector1; //Output pin injector 1
 extern byte pinInjector2; //Output pin injector 2
 extern byte pinInjector3; //Output pin injector 3
@@ -1472,7 +1499,9 @@ extern byte pinTrigger; //The CAS pin
 extern byte pinTrigger2; //The Cam Sensor pin known as secondary input
 extern byte pinTrigger3;	//the 2nd cam sensor pin known as tertiary input
 extern byte pinTPS;//TPS input pin
-extern byte pinMAP; //MAP sensor pin
+extern byte pinACC;//Acceleration pedal input pin
+extern byte pinDBWPW;//Throttle position output pin
+extern byte pinMAP;  // MAP sensor pin
 extern byte pinEMAP; //EMAP sensor pin
 extern byte pinMAP2; //2nd MAP sensor (Currently unused)
 extern byte pinIAT; //IAT sensor pin
@@ -1546,6 +1575,7 @@ extern struct config9 configPage9;
 extern struct config10 configPage10;
 extern struct config13 configPage13;
 extern struct config15 configPage15;
+extern struct config16 configPage16;
 //extern byte cltCalibrationTable[CALIBRATION_TABLE_SIZE]; /**< An array containing the coolant sensor calibration values */
 //extern byte iatCalibrationTable[CALIBRATION_TABLE_SIZE]; /**< An array containing the inlet air temperature sensor calibration values */
 //extern byte o2CalibrationTable[CALIBRATION_TABLE_SIZE]; /**< An array containing the O2 sensor calibration values */
