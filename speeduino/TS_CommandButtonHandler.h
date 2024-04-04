@@ -70,5 +70,8 @@
 #define TS_CMD_VSS_RATIO5 39173
 #define TS_CMD_VSS_RATIO6 39174
 
+#define TS_CMD_CURR_ACC_MIN 13312
+#define TS_CMD_CURR_ACC_MAX 13313
+
 /* the maximum id number is 65,535 */
 bool TS_CommandButtonsHandler(uint16_t buttonCommand);

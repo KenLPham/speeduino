@@ -274,3 +274,4 @@ int16_t ProgrammableIOGetData(uint16_t index)
   else { result = -1; } //Index is bigger than fullStatus array
   return result;
 }
+

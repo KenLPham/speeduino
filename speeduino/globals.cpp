@@ -175,6 +175,8 @@ byte pinTrigger;  ///< RPM1 (Typically CAS=crankshaft angle sensor) pin
 byte pinTrigger2; ///< RPM2 (Typically the Cam Sensor) pin
 byte pinTrigger3;	///< the 2nd cam sensor pin
 byte pinTPS;      //TPS input pin
+byte pinACC;      //Acceleration pedal input pin
+byte pinDBWPW;   //Throttle position output pin
 byte pinMAP;      //MAP sensor pin
 byte pinEMAP;     //EMAP sensor pin
 byte pinMAP2;     //2nd MAP sensor (Currently unused)
@@ -244,6 +246,7 @@ struct config9 configPage9;
 struct config10 configPage10;
 struct config13 configPage13;
 struct config15 configPage15;
+struct config16 configPage16;
 
 //byte cltCalibrationTable[CALIBRATION_TABLE_SIZE]; /**< An array containing the coolant sensor calibration values */
 //byte iatCalibrationTable[CALIBRATION_TABLE_SIZE]; /**< An array containing the inlet air temperature sensor calibration values */

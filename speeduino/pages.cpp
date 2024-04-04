@@ -24,7 +24,7 @@
 //  2. Offset to intra-entity byte
 
 // Page sizes as defined in the .ini file
-constexpr const uint16_t PROGMEM ini_page_sizes[] = { 0, 128, 288, 288, 128, 288, 128, 240, 384, 192, 192, 288, 192, 128, 288, 256 };
+constexpr const uint16_t PROGMEM ini_page_sizes[] = { 0, 128, 288, 288, 128, 288, 128, 240, 384, 192, 192, 288, 192, 128, 288, 256, 64 };
 
 // ========================= Table size calculations =========================
 // Note that these should be computed at compile time, assuming the correct
@@ -405,6 +405,12 @@ page_iterator_t map_page_offset_to_entity(uint8_t pageNumber, uint16_t offset)
       CHECK_TABLE(boostvvtPage2, offset, &boostTableLookupDuty, 0)
       CHECK_RAW(boostvvtPage2, offset, &configPage15, sizeof(configPage15), 1)
       END_OF_PAGE(boostvvtPage2, 2)
+    }
+
+    case dbwPage:
+    {
+        CHECK_RAW(dbwPage, offset, &configPage16, sizeof(configPage16), 0);
+        END_OF_PAGE(dbwPage, 1);
     }
 
     default:

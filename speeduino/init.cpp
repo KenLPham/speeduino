@@ -1349,6 +1349,7 @@ void initialiseAll(void)
     interrupts();
     readCLT(false); // Need to read coolant temp to make priming pulsewidth work correctly. The false here disables use of the filter
     readTPS(false); // Need to read tps to detect flood clear state
+    readACC(false);
 
     /* tacho sweep function. */
     //tachoStatus.tachoSweepEnabled = (configPage2.useTachoSweep > 0);
@@ -1500,7 +1501,9 @@ void setPinMapping(byte boardID)
       pinLaunch = 51; //Can be overwritten below
       pinFlex = 2; // Flex sensor (Must be external interrupt enabled)
       pinResetControl = 43; //Reset control output
-      pinBaro = A5;
+      // pinBaro = A5;
+      pinACC = A5;
+      pinDBWPW = 49;
       pinVSS = 20;
       pinWMIEmpty = 46;
       pinWMIIndicator = 44;
@@ -1527,7 +1530,12 @@ void setPinMapping(byte boardID)
 
       #elif defined(CORE_TEENSY41)
         //These are only to prevent lockups or weird behaviour on T4.1 when this board is used as the default
-        pinBaro = A4; 
+        // ! currently not using baro and not enough pins on teensy were mapped so using baro pin for acc pin for now, will need to change it later
+        pinACC = A4; // todo: change to a different analog pin
+        // TODO:: use idle pin for dbw output
+        pinDBWPW = 28; // ! conflicts with tachOut
+        // pinIdle1 = 5; //Single wire idle control
+        // pinBaro = A4;
         pinMAP = A5;
         pinTPS = A3; //TPS input pin
         pinIAT = A0; //IAT sensor pin
@@ -1551,7 +1559,7 @@ void setPinMapping(byte boardID)
         pinCoil4 = 29;
         pinCoil3 = 25;
 
-        pinTachOut = 28;
+        pinTachOut = 40; // ! 28
         pinFan = 27;
         pinFuelPump = 33;
         pinWMIEmpty = 41;
@@ -3033,6 +3041,7 @@ void setPinMapping(byte boardID)
       pinMode(pinCLT, INPUT_ANALOG);
       pinMode(pinBat, INPUT_ANALOG);
       pinMode(pinBaro, INPUT_ANALOG);
+      pinMode(pinACC, INPUT_ANALOG);
     #else
       pinMode(pinMAP, INPUT);
       pinMode(pinO2, INPUT);
@@ -3042,6 +3051,7 @@ void setPinMapping(byte boardID)
       pinMode(pinCLT, INPUT);
       pinMode(pinBat, INPUT);
       pinMode(pinBaro, INPUT);
+      pinMode(pinACC, INPUT);
     #endif
   #endif
 
@@ -3130,7 +3140,12 @@ void setPinMapping(byte boardID)
   if((pinAirConFan > 0) && ((configPage15.airConEnable) == 1) && ((configPage15.airConFanEnabled) == 1))
   {
     pinMode(pinAirConFan, OUTPUT);
-  }  
+  }
+
+  if(configPage16.dbwEnabled) {
+    pinMode(pinACC, INPUT);
+    pinMode(pinDBWPW, OUTPUT);
+  }
 
   //These must come after the above pinMode statements
   triggerPri_pin_port = portInputRegister(digitalPinToPort(pinTrigger));

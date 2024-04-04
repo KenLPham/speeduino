@@ -383,6 +383,15 @@ bool TS_CommandButtonsHandler(uint16_t buttonCommand)
       break;
 #endif
 
+    case TS_CMD_CURR_ACC_MIN:
+      configPage16.accMin = currentStatus.accADC;
+      BIT_SET(currentStatus.status3, BIT_STATUS3_VSS_REFRESH);
+      break;
+    case TS_CMD_CURR_ACC_MAX:
+      configPage16.accMax = currentStatus.accADC;
+      BIT_SET(currentStatus.status3, BIT_STATUS3_VSS_REFRESH);
+      break;
+
     default:
       return false;
       break;

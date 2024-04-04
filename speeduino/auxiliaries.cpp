@@ -71,7 +71,6 @@ bool vvtIsHot;
 bool vvtTimeHold;
 uint16_t vvt_pwm_max_count; //Used for variable PWM frequency
 uint16_t boost_pwm_max_count; //Used for variable PWM frequency
-
 //Old PID method. Retained in case the new one has issues
 //integerPID boostPID(&MAPx100, &boost_pwm_target_value, &boostTargetx100, configPage6.boostKP, configPage6.boostKI, configPage6.boostKD, DIRECT);
 integerPID_ideal boostPID(&currentStatus.MAP, &currentStatus.boostDuty , &currentStatus.boostTarget, &configPage10.boostSens, &configPage10.boostIntv, configPage6.boostKP, configPage6.boostKI, configPage6.boostKD, DIRECT); //This is the PID object if that algorithm is used. Needs to be global as it maintains state outside of each function call
@@ -537,6 +536,7 @@ void initialiseAuxPWM(void)
 
   currentStatus.nitrous_status = NITROUS_OFF;
 
+  currentStatus.dbwPW = 0;
 }
 
 void boostByGear(void)
@@ -1096,6 +1096,12 @@ void wmiControl(void)
       }
     }
   }
+}
+
+void driveByWire(void)
+{
+    currentStatus.dbwPW = map(currentStatus.ACC, 0, 200, 255, 128);
+    analogWrite(pinDBWPW, currentStatus.dbwPW);
 }
 
 void boostDisable(void)
