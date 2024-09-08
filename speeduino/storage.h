@@ -120,6 +120,7 @@
  *
  */
 
+bool initialiseStorage(void);
 void writeAllConfig(void);
 void writeConfig(uint8_t pageNum);
 void EEPROMWriteRaw(uint16_t address, uint8_t data);
