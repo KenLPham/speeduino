@@ -70,6 +70,7 @@
     #define CORE_TEENSY41
     #define BOARD_H "board_teensy41.h"
     #define BOARD_MAX_ADC_PINS  17 //Number of analog pins
+    #define USE_LITTLEFS
   #endif
   #define INJ_CHANNELS 8
   #define IGN_CHANNELS 8

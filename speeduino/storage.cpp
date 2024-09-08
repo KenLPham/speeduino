@@ -13,6 +13,9 @@ A full copy of the license may be found in the projects root directory
 #include "pages.h"
 #include "table3d_axis_io.h"
 
+#ifdef USE_LITTLEFS
+#include "src/LittleFS/src/LittleFS.h"
+#endif
 
 #define EEPROM_DATA_VERSION   0
 
@@ -35,6 +38,22 @@ bool isEepromWritePending(void)
   return BIT_CHECK(currentStatus.status4, BIT_STATUS4_BURNPENDING);
 }
 
+#ifdef USE_LITTLEFS
+// WARNING: write is blocking
+// TODO: use external NAND chip
+#define CONFIG_FLASH_SIZE (1024 * 1024) // 1MB
+LittleFS_Program fs;
+#endif
+
+bool initialiseStorage()
+{
+    #ifdef USE_LITTLEFS
+    return fs.begin(CONFIG_FLASH_SIZE);
+    #else
+    return true;
+    #endif
+}
+
 /** Write all config pages to EEPROM.
  */
 void writeAllConfig(void)
@@ -53,6 +72,10 @@ void writeAllConfig(void)
 
 //  ================================= Internal write support ===============================
 struct write_location {
+  #ifdef USE_LITTLEFS
+  // TODO: global file object for both read and write?
+  File *file;
+  #endif
   eeprom_address_t address; // EEPROM address to write next
   uint16_t counter; // Number of bytes written
   uint8_t write_block_size; // Maximum number of bytes to write
@@ -63,18 +86,28 @@ struct write_location {
   */
   void update(uint8_t value)
   {
+    #ifdef USE_LITTLEFS
+    file->seek(address);
+    file->write(&value, sizeof(value));
+    ++counter;
+    #else
     if (EEPROM.read(address)!=value)
     {
       EEPROM.write(address, value);
       ++counter;
     }
+    #endif 
   }
 
   /** Create a copy with a different write address.
    * Allows chaining of instances.
    */
   write_location changeWriteAddress(eeprom_address_t newAddress) const {
-    return { newAddress, counter, write_block_size };
+    return {
+            #ifdef USE_LITTLEFS
+        file,
+            #endif
+            newAddress, counter, write_block_size };
   }
 
   write_location& operator++()
@@ -140,8 +173,29 @@ static inline write_location writeTable(void *pTable, table_type_t key, write_lo
 }
 
 //Simply an alias for EEPROM.update()
-void EEPROMWriteRaw(uint16_t address, uint8_t data) { EEPROM.update(address, data); }
-uint8_t EEPROMReadRaw(uint16_t address) { return EEPROM.read(address); }
+void EEPROMWriteRaw(uint16_t address, uint8_t data) {
+    // TODO: this is fucked
+    #ifdef USE_LITTLEFS
+    File file = fs.open("ecu.cfg", FILE_WRITE);
+    file.seek(address);
+    file.write(&data, sizeof(data));
+    file.close();
+    #else
+    EEPROM.update(address, data);
+    #endif
+}
+uint8_t EEPROMReadRaw(uint16_t address) {
+    #ifdef USE_LITTLEFS
+    uint8_t data;
+    File file = fs.open("ecu.cfg", FILE_READ);
+    file.seek(address);
+    file.read(&data, sizeof(data));
+    file.close();
+    return data;
+    #else
+    return EEPROM.read(address);
+    #endif
+}
 
 //  ================================= End write support ===============================
 
@@ -178,7 +232,15 @@ void writeConfig(uint8_t pageNum)
 
 #endif
 
-  write_location result = { 0, 0, EEPROM_MAX_WRITE_BLOCK };
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_WRITE);
+  #endif
+
+  write_location result = {
+        #ifdef USE_LITTLEFS
+        &file,
+        #endif
+        0, 0, EEPROM_MAX_WRITE_BLOCK };
 
   switch(pageNum)
   {
@@ -323,6 +385,9 @@ void writeConfig(uint8_t pageNum)
       break;
   }
 
+  #ifdef USE_LITTLEFS
+  file.close();
+  #endif
   BIT_WRITE(currentStatus.status4, BIT_STATUS4_BURNPENDING, !result.can_write());
 }
 
@@ -358,6 +423,13 @@ static inline eeprom_address_t load_range(eeprom_address_t address, byte *pFirst
   size_t size = pLast-pFirst;
   eeprom_read_block(pFirst, (const void*)(size_t)address, size);
   return address+size;
+#elif defined(USE_LITTLEFS)
+  size_t size = pLast-pFirst;
+  File file = fs.open("ecu.cfg", FILE_READ);
+  file.seek(address);
+  file.read(pFirst, size);
+  file.close();
+  return address+size;
 #else
   for (; pFirst != pLast; ++address, (void)++pFirst)
   {
@@ -385,9 +457,19 @@ static inline eeprom_address_t load(table_value_iterator it, eeprom_address_t ad
 static inline eeprom_address_t load(table_axis_iterator it, eeprom_address_t address)
 {
     const table3d_axis_io_converter converter = get_table3d_axis_converter(it.get_domain());
+  #ifdef USE_LITTLEFS
+  byte data;
+  File file = fs.open("ecu.cfg", FILE_READ);
+  #endif
   while (!it.at_end())
   {
+    #ifdef USE_LITTLEFS
+    file.seek(address);
+    file.read(&data, sizeof(data));
+    *it = converter.from_byte(data);
+    #else
     *it = converter.from_byte(EEPROM.read(address));
+    #endif
     ++address;
     ++it;
   }
@@ -485,6 +567,24 @@ void loadCalibration(void)
   // If you modify this function be sure to also modify writeCalibration();
   // it should be a mirror image of this function.
 
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_READ);
+  file.seek(EEPROM_CALIBRATION_O2_BINS);
+  file.read(&o2Calibration_bins, sizeof(o2Calibration_bins));
+  file.seek(EEPROM_CALIBRATION_O2_VALUES);
+  file.read(&o2Calibration_values, sizeof(o2Calibration_values));
+
+  file.seek(EEPROM_CALIBRATION_IAT_BINS);
+  file.read(&iatCalibration_bins, sizeof(iatCalibration_bins));
+  file.seek(EEPROM_CALIBRATION_IAT_VALUES);
+  file.read(&iatCalibration_values, sizeof(iatCalibration_values));
+
+  file.seek(EEPROM_CALIBRATION_CLT_BINS);
+  file.read(&cltCalibration_bins, sizeof(cltCalibration_bins));
+  file.seek(EEPROM_CALIBRATION_CLT_VALUES);
+  file.read(&cltCalibration_values, sizeof(cltCalibration_values));
+  file.close();
+  #else
   EEPROM.get(EEPROM_CALIBRATION_O2_BINS, o2Calibration_bins);
   EEPROM.get(EEPROM_CALIBRATION_O2_VALUES, o2Calibration_values);
   
@@ -493,6 +593,7 @@ void loadCalibration(void)
 
   EEPROM.get(EEPROM_CALIBRATION_CLT_BINS, cltCalibration_bins);
   EEPROM.get(EEPROM_CALIBRATION_CLT_VALUES, cltCalibration_values);
+  #endif
 }
 
 /** Write calibration tables to EEPROM.
@@ -503,7 +604,24 @@ void writeCalibration(void)
 {
   // If you modify this function be sure to also modify loadCalibration();
   // it should be a mirror image of this function.
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_WRITE);
+  file.seek(EEPROM_CALIBRATION_O2_BINS);
+  file.write(&o2Calibration_bins, sizeof(o2Calibration_bins));
+  file.seek(EEPROM_CALIBRATION_O2_VALUES);
+  file.write(o2Calibration_values, sizeof(o2Calibration_values));
 
+  file.seek(EEPROM_CALIBRATION_IAT_BINS);
+  file.write(&iatCalibration_bins, sizeof(iatCalibration_bins));
+  file.seek(EEPROM_CALIBRATION_IAT_VALUES);
+  file.write(iatCalibration_values, sizeof(iatCalibration_values));
+
+  file.seek(EEPROM_CALIBRATION_CLT_BINS);
+  file.write(&cltCalibration_bins, sizeof(cltCalibration_bins));
+  file.seek(EEPROM_CALIBRATION_CLT_VALUES);
+  file.write(&cltCalibration_values, sizeof(cltCalibration_values));
+  file.close();
+  #else
   EEPROM.put(EEPROM_CALIBRATION_O2_BINS, o2Calibration_bins);
   EEPROM.put(EEPROM_CALIBRATION_O2_VALUES, o2Calibration_values);
   
@@ -512,25 +630,53 @@ void writeCalibration(void)
 
   EEPROM.put(EEPROM_CALIBRATION_CLT_BINS, cltCalibration_bins);
   EEPROM.put(EEPROM_CALIBRATION_CLT_VALUES, cltCalibration_values);
+  #endif
 }
 
 void writeCalibrationPage(uint8_t pageNum)
 {
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_WRITE);
+  #endif
   if(pageNum == O2_CALIBRATION_PAGE)
   {
+    #ifdef USE_LITTLEFS
+    file.seek(EEPROM_CALIBRATION_O2_BINS);
+    file.write(&o2Calibration_bins, sizeof(o2Calibration_bins));
+    file.seek(EEPROM_CALIBRATION_O2_VALUES);
+    file.write(&o2Calibration_values, sizeof(o2Calibration_values));
+    #else
     EEPROM.put(EEPROM_CALIBRATION_O2_BINS, o2Calibration_bins);
     EEPROM.put(EEPROM_CALIBRATION_O2_VALUES, o2Calibration_values);
+    #endif
   }
   else if(pageNum == IAT_CALIBRATION_PAGE)
   {
+    #ifdef USE_LITTLEFS
+    file.seek(EEPROM_CALIBRATION_IAT_BINS);
+    file.write(&iatCalibration_bins, sizeof(iatCalibration_bins));
+    file.seek(EEPROM_CALIBRATION_IAT_VALUES);
+    file.write(&iatCalibration_values, sizeof(iatCalibration_values));
+    #else
     EEPROM.put(EEPROM_CALIBRATION_IAT_BINS, iatCalibration_bins);
     EEPROM.put(EEPROM_CALIBRATION_IAT_VALUES, iatCalibration_values);
+    #endif
   }
   else if(pageNum == CLT_CALIBRATION_PAGE)
   {
+    #ifdef USE_LITTLEFS
+    file.seek(EEPROM_CALIBRATION_CLT_BINS);
+    file.write(&cltCalibration_bins, sizeof(cltCalibration_bins));
+    file.seek(EEPROM_CALIBRATION_CLT_VALUES);
+    file.write(&cltCalibration_values, sizeof(cltCalibration_values));
+    #else
     EEPROM.put(EEPROM_CALIBRATION_CLT_BINS, cltCalibration_bins);
     EEPROM.put(EEPROM_CALIBRATION_CLT_VALUES, cltCalibration_values);
+    #endif
   }
+  #ifdef USE_LITTLEFS
+  file.close();
+  #endif
 }
 
 static eeprom_address_t compute_crc_address(uint8_t pageNum)
@@ -545,7 +691,14 @@ Takes a page number and CRC32 value then stores it in the relevant place in EEPR
 */
 void storePageCRC32(uint8_t pageNum, uint32_t crcValue)
 {
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_WRITE);
+  file.seek(compute_crc_address(pageNum));
+  file.write(&crcValue, sizeof(crcValue));
+  file.close();
+  #else
   EEPROM.put(compute_crc_address(pageNum), crcValue);
+  #endif
 }
 
 /** Retrieves and returns the 4 byte CRC32 checksum for a given page from EEPROM.
@@ -554,7 +707,15 @@ void storePageCRC32(uint8_t pageNum, uint32_t crcValue)
 uint32_t readPageCRC32(uint8_t pageNum)
 {
   uint32_t crc32_val;
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_READ);
+  file.seek(compute_crc_address(pageNum));
+  file.read(&crc32_val, sizeof(crc32_val));
+  file.close();
+  return crc32_val;
+  #else
   return EEPROM.get(compute_crc_address(pageNum), crc32_val);
+  #endif
 }
 
 /** Same as above, but writes the CRC32 for the calibration page rather than tune data
@@ -579,8 +740,14 @@ void storeCalibrationCRC32(uint8_t calibrationPageNum, uint32_t calibrationCRC)
       targetAddress = EEPROM_CALIBRATION_CLT_CRC; //Obviously should never happen
       break;
   }
-
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_WRITE);
+  file.seek(targetAddress);
+  file.write(&calibrationCRC, sizeof(calibrationCRC));
+  file.close();
+  #else
   EEPROM.put(targetAddress, calibrationCRC);
+  #endif
 }
 
 /** Retrieves and returns the 4 byte CRC32 checksum for a given calibration page from EEPROM.
@@ -606,22 +773,74 @@ uint32_t readCalibrationCRC32(uint8_t calibrationPageNum)
       break;
   }
 
+  #ifdef USE_LITTLEFS
+  File file = fs.open("ecu.cfg", FILE_READ);
+  file.seek(targetAddress);
+  file.read(&crc32_val, sizeof(crc32_val));
+  file.close();
+  return crc32_val;
+  #else
   EEPROM.get(targetAddress, crc32_val);
   return crc32_val;
+  #endif
 }
 
 uint16_t getEEPROMSize(void)
 {
+  #ifdef USE_LITTLEFS
+  return (uint16_t)CONFIG_FLASH_SIZE;
+  #else
   return EEPROM.length();
+  #endif
 }
 
 // Utility functions.
 // By having these in this file, it prevents other files from calling EEPROM functions directly. This is useful due to differences in the EEPROM libraries on different devces
 /// Read last stored barometer reading from EEPROM.
-byte readLastBaro(void) { return EEPROM.read(EEPROM_LAST_BARO); }
+byte readLastBaro(void) { 
+    #ifdef USE_LITTLEFS
+    byte data;
+    File file = fs.open("ecu.cfg", FILE_READ);
+    file.seek(EEPROM_LAST_BARO);
+    file.read(&data, sizeof(data));
+    file.close();
+    return data;
+    #else
+    return EEPROM.read(EEPROM_LAST_BARO);
+    #endif
+}
 /// Write last acquired arometer reading to EEPROM.
-void storeLastBaro(byte newValue) { EEPROM.update(EEPROM_LAST_BARO, newValue); }
+void storeLastBaro(byte newValue) {
+    #ifdef USE_LITTLEFS
+    File file = fs.open("ecu.cfg", FILE_WRITE);
+    file.seek(EEPROM_LAST_BARO);
+    file.write(&newValue, sizeof(newValue));
+    file.close();
+    #else
+    EEPROM.update(EEPROM_LAST_BARO, newValue);
+    #endif
+}
 /// Read EEPROM current data format version (from offset EEPROM_DATA_VERSION).
-byte readEEPROMVersion(void) { return EEPROM.read(EEPROM_DATA_VERSION); }
+byte readEEPROMVersion(void) {
+    #ifdef USE_LITTLEFS
+    byte data;
+    File file = fs.open("ecu.cfg", FILE_READ);
+    file.seek(EEPROM_DATA_VERSION);
+    file.read(&data, sizeof(data));
+    file.close();
+    return data;
+    #else
+    return EEPROM.read(EEPROM_DATA_VERSION);
+    #endif
+}
 /// Store EEPROM current data format version (to offset EEPROM_DATA_VERSION).
-void storeEEPROMVersion(byte newVersion) { EEPROM.update(EEPROM_DATA_VERSION, newVersion); }
+void storeEEPROMVersion(byte newVersion) {
+    #ifdef USE_LITTLEFS
+    File file = fs.open("ecu.cfg", FILE_WRITE);
+    file.seek(EEPROM_DATA_VERSION);
+    file.write(&newVersion, sizeof(newVersion));
+    file.close();
+    #else
+    EEPROM.update(EEPROM_DATA_VERSION, newVersion);
+    #endif
+}

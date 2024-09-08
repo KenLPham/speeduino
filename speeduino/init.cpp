@@ -99,9 +99,11 @@ void initialiseAll(void)
     #endif
   
     // Unit tests should be independent of any stored configuration on the board!
-#if !defined(UNIT_TEST)
-    loadConfig();
-    doUpdates(); //Check if any data items need updating (Occurs with firmware updates)
+#ifndef UNIT_TEST
+    if (initialiseStorage()) {
+        loadConfig();
+        doUpdates(); //Check if any data items need updating (Occurs with firmware updates)
+    }
 #endif
 
 
